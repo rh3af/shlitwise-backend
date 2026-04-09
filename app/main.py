@@ -1,3 +1,4 @@
+import re
 import time
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -9,6 +10,7 @@ from app.models import User
 from app.schemas import (
     AuthResponse,
     LoginRequest,
+    ParticipantLookupRequest,
     SignUpRequest,
     UpdateAccountRequest,
     UserResponse,
@@ -135,6 +137,47 @@ def update_account(user_id: int, payload: UpdateAccountRequest, session: Session
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    return UserResponse(
+        id=user.id,
+        fullName=user.full_name,
+        email=user.email,
+        phoneNumber=user.phone_number,
+    )
+
+
+@app.post("/users/lookup", response_model=UserResponse)
+def lookup_user(payload: ParticipantLookupRequest, session: Session = Depends(get_session)):
+    value = payload.value.strip()
+
+    if not value:
+        raise HTTPException(status_code=400, detail="Lookup value is required")
+
+    is_email = "@" in value
+    is_phone = value.isdigit()
+
+    if is_email:
+        normalized_email = value.lower()
+        user = session.exec(select(User).where(User.email == normalized_email)).first()
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="There is no account found with the entered email address"
+            )
+
+    elif is_phone:
+        user = session.exec(select(User).where(User.phone_number == value)).first()
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="There is no account found with the entered phone number"
+            )
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Enter a valid email address or phone number"
+        )
 
     return UserResponse(
         id=user.id,

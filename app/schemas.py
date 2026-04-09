@@ -20,6 +20,10 @@ class UpdateAccountRequest(BaseModel):
     password: str | None = None
 
 
+class ParticipantLookupRequest(BaseModel):
+    value: str
+
+
 class UserResponse(BaseModel):
     id: int
     fullName: str
